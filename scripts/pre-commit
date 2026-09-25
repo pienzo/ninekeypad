@@ -1,0 +1,52 @@
+#!/bin/sh
+# Refuses a commit when a staged file contains private information:
+# an e-mail address, a personal folder path, or the git author's own name or e-mail.
+# The author's details are read from git config at run time, so they never appear here.
+# Enable once per clone:  git config core.hooksPath scripts
+
+status=0
+author_email=$(git config user.email)
+author_name=$(git config user.name)
+# A made-up author (an address ending in .invalid, e.g. the project's own name) has nothing
+# private to protect, and its name may be in every file: check only the patterns then.
+case "$author_email" in
+*.invalid) author_email="" author_name="" ;;
+esac
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+
+git diff --cached --name-only --diff-filter=ACMR | while IFS= read -r file; do
+    git show ":$file" > "$tmp" 2>/dev/null || continue
+    # Skip binary files
+    if ! grep -Iq . "$tmp" 2>/dev/null; then continue; fi
+
+    hits=$(grep -nE \
+        -e '[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}' \
+        -e '[A-Za-z]:[\\/]+Users[\\/]+[^\\/ ]+' \
+        -e '/home/[a-z_][a-z0-9_-]*/' \
+        -e '/Users/[A-Za-z][^/ ]*/' \
+        "$tmp")
+    if [ -n "$author_email" ]; then
+        more=$(grep -nF -e "$author_email" -e "${author_email%%@*}" "$tmp")
+        hits=$(printf '%s\n%s' "$hits" "$more")
+    fi
+    # Names shorter than 4 letters would match ordinary words; check longer ones only.
+    if [ ${#author_name} -ge 4 ]; then
+        more=$(grep -nwiF -e "$author_name" "$tmp")
+        hits=$(printf '%s\n%s' "$hits" "$more")
+    fi
+    hits=$(printf '%s\n' "$hits" | sed '/^$/d' | sort -u)
+    if [ -n "$hits" ]; then
+        echo "PRIVATE INFO? $file:" >&2
+        printf '%s\n' "$hits" | sed 's/^/    line /' >&2
+        echo 1 > "$tmp.fail"
+    fi
+done
+
+if [ -f "$tmp.fail" ]; then
+    rm -f "$tmp.fail"
+    echo "" >&2
+    echo "Commit refused: remove the private information above (e-mail, personal folder path, name)." >&2
+    exit 1
+fi
+exit $status

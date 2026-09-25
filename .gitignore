@@ -1,0 +1,10 @@
+# Project-local Go toolchain, caches and temp files (see scripts/go.ps1)
+.tools/
+# Build output
+dist/
+# Files the program writes next to itself, if it is ever run from the repo folder
+/backups/
+/layouts/
+keypad-settings.json
+ninekeypad-settings.json
+*.tmp

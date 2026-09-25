@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ninekeypad</title>
+<style>
+:root {
+  --bg: #f4f5f7; --panel: #ffffff; --text: #1d2126; --muted: #5f6873; --line: #d9dde3;
+  --accent: #2f6fdf; --accent-text: #ffffff; --key: #fbfbfc; --key-edge: #c8cdd5;
+  --ok: #1f7a3f; --ok-bg: #e6f4ea; --warn: #8a5a00; --warn-bg: #fff4d6; --bad: #b3261e; --bad-bg: #fde7e6;
+  --changed: #d97706; --pressed: #ffd84d; --live: #1f9d55;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181c; --panel: #1e2227; --text: #e7e9ec; --muted: #9aa3ad; --line: #343a42;
+    --accent: #5b8ff0; --accent-text: #0d1117; --key: #262b31; --key-edge: #434a53;
+    --ok: #6fcf8f; --ok-bg: #16301f; --warn: #f0c060; --warn-bg: #33290f; --bad: #ff8a80; --bad-bg: #3a1614;
+    --changed: #f5a524; --pressed: #8a6d00; --live: #4cd08a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { font-size: 18px; margin: 0; }
+.chip { padding: 3px 10px; border-radius: 99px; font-size: 13px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.chip.ok { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.chip.bad { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+.spacer { flex: 1; }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+@media (max-width: 800px) { main { grid-template-columns: minmax(0, 1fr); } }
+.banner { grid-column: 1 / -1; padding: 10px 14px; border-radius: 8px; }
+.banner.bad { background: var(--bad-bg); color: var(--bad); font-weight: 600; }
+.banner.warn { background: var(--warn-bg); color: var(--warn); }
+.banner.ok { background: var(--ok-bg); color: var(--ok); }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+section h2 { font-size: 15px; margin: 0 0 12px; }
+.wide { grid-column: 1 / -1; }
+label.field { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+input[type=text], select { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+button { font: inherit; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+button.small { padding: 4px 9px; font-size: 13px; }
+button:disabled { opacity: .5; cursor: default; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.tab { position: relative; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); text-align: left; }
+.tab.sel { border-color: var(--accent); background: var(--panel); box-shadow: inset 0 -3px 0 var(--accent); }
+.tab .n { font-weight: 700; margin-right: 6px; }
+.tab .live { display: none; color: var(--live); font-size: 12px; margin-left: 6px; }
+.tab.active .live { display: inline; }
+.tab .dot { position: absolute; top: 4px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--changed); display: none; }
+.tab.changed .dot { display: block; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+.key { position: relative; aspect-ratio: 1.15; border: 1px solid var(--key-edge); border-bottom-width: 4px; border-radius: 10px; background: var(--key); padding: 8px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; cursor: pointer; min-width: 0; }
+.key:hover { border-color: var(--accent); }
+.key.sel { outline: 3px solid var(--accent); outline-offset: 2px; }
+.key.pressed { background: var(--pressed); }
+.key .what { font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+.key .name { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.key.none .what { color: var(--muted); font-weight: 400; }
+.key .dot { position: absolute; top: 7px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--changed); display: none; }
+.key.changed .dot { display: block; }
+.hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+.kinds { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.kinds label { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.kinds input { margin-right: 6px; }
+.mods { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0; }
+.files { list-style: none; padding: 0; margin: 6px 0 0; max-height: 260px; overflow: auto; }
+.files li { display: flex; gap: 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.files li span { flex: 1; min-width: 140px; overflow-wrap: anywhere; font-size: 13px; }
+.files li small { color: var(--muted); display: block; }
+#msg { grid-column: 1 / -1; }
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); max-width: 560px; width: calc(100% - 32px); max-height: calc(100vh - 32px); overflow: auto; }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+dialog ul { padding-left: 20px; margin: 4px 0 10px; }
+dialog h3 { font-size: 14px; margin: 12px 0 0; }
+.muted { color: var(--muted); }
+code { font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ninekeypad</h1>
+  <span id="status" class="chip">Looking for the keypad…</span>
+  <span class="spacer"></span>
+  <span id="version" class="muted"></span>
+  <button id="quit" title="Stop the program">Quit</button>
+</header>
+
+<main>
+  <div id="banners" class="wide" style="display:grid;gap:8px"></div>
+
+  <section>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">Layers <span class="muted" style="font-weight:400" id="layerCount"></span></h2>
+      <label class="muted" style="font-size:13px">Keypad
+        <select id="model" style="width:auto;margin-left:4px" title="Set by the connected keypad; choose by hand only to edit without a keypad">
+          <option value="9">9 keys (tested)</option>
+          <option value="4">4 keys (untested)</option>
+        </select>
+      </label>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="row">
+      <input type="text" id="layerName" maxlength="20" style="flex:1;min-width:140px" aria-label="Layer name">
+      <button class="small" id="moveLeft" title="Move this layer one place to the left">◀</button>
+      <button class="small" id="moveRight" title="Move this layer one place to the right">▶</button>
+      <button class="small" id="removeLayer">Remove layer</button>
+      <button class="small" id="useLayer" title="Switch the keypad to this layer now">Use on keypad</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <p class="hint">Click a key to change it. Press a key on the real keypad and it lights up here.
+      <span style="color:var(--changed)">●</span> = changed, not yet written.
+      <span style="color:var(--live)">active</span> = the layer the keypad uses now.
+      Layer-switch keys work while this program runs — closing this page does not stop it; “Quit” does.</p>
+    <div class="row" style="margin-top:12px">
+      <button id="read">Read from keypad</button>
+      <button id="write" class="primary">Write to keypad…</button>
+    </div>
+  </section>
+
+  <section id="editor">
+    <h2 id="edTitle">Key</h2>
+    <div class="kinds" role="radiogroup">
+      <label><input type="radio" name="kind" value="none">Empty</label>
+      <label><input type="radio" name="kind" value="key">Single key</label>
+      <label><input type="radio" name="kind" value="combo">Key combination</label>
+      <label><input type="radio" name="kind" value="layer">Layer switch</label>
+    </div>
+    <div id="edLayer">
+      <label class="field" for="edTarget">Switch to</label>
+      <select id="edTarget">
+        <option value="next">Next layer (after the last comes the first)</option>
+        <option value="prev">Previous layer</option>
+        <option value="1">Layer 1</option><option value="2">Layer 2</option><option value="3">Layer 3</option>
+        <option value="4">Layer 4</option><option value="5">Layer 5</option><option value="6">Layer 6</option>
+      </select>
+      <p class="hint">This key types nothing. While the keypad program runs (its window may be minimized),
+        pressing it switches the keypad's layer. Give every layer such a key, or you cannot switch back from the keypad.</p>
+    </div>
+    <div id="edKey">
+      <div id="edMods" class="mods"></div>
+      <label class="field" for="edCode">Key</label>
+      <select id="edCode"></select>
+    </div>
+    <div id="edOther" class="hint"></div>
+    <label class="field" for="edLabel">Name (for you, stored on the keypad, max 20 characters)</label>
+    <input type="text" id="edLabel" maxlength="20">
+    <p class="hint">This key sends: <b id="edSends"></b></p>
+  </section>
+
+  <section class="wide">
+    <h2>Layouts and backups</h2>
+    <p class="hint" style="margin:0 0 12px">A <b>layout</b> is one layer's 9 keys, saved as a file in this program's folder — as many as you like.
+      “Load” puts a layout into the selected layer. Nothing reaches the keypad until you press “Write to keypad”.</p>
+    <div style="display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      <div>
+        <b>Ready-made</b>
+        <div class="row" style="margin-top:8px">
+          <span id="presetButtons" class="row"></span>
+        </div>
+      </div>
+      <div>
+        <b>My layouts</b>
+        <div class="row" style="margin-top:8px">
+          <input type="text" id="saveName" placeholder="File name, e.g. video-editing" style="flex:1;min-width:120px">
+          <button id="save">Save selected layer</button>
+        </div>
+        <ul class="files" id="layouts"></ul>
+      </div>
+      <div>
+        <b>Backups</b>
+        <p class="hint" style="margin-top:4px">The whole keypad (all layers), saved automatically before every write. “Load” puts all its layers in the editor; write them to restore.</p>
+        <ul class="files" id="backups"></ul>
+      </div>
+    </div>
+    <p class="hint">Files are kept in: <code id="folder"></code></p>
+  </section>
+
+  <div id="msg"></div>
+</main>
+
+<dialog id="confirm">
+  <h2 style="font-size:16px;margin-top:0">Write to the keypad?</h2>
+  <div id="confirmBody"></div>
+  <p class="hint">First everything on the keypad is saved as a backup. After writing, every layer and key is read back and checked.</p>
+  <div class="row" style="justify-content:flex-end">
+    <button id="confirmNo">Cancel</button>
+    <button id="confirmYes" class="primary">Write</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+const token = new URLSearchParams(location.search).get("t") || "";
+const $ = (id) => document.getElementById(id);
+const POS9 = ["top left", "top middle", "top right", "middle left", "center", "middle right", "bottom left", "bottom middle", "bottom right"];
+// Where key i sits. The 4-key keypad's arrangement is not known here, so its keys are numbered.
+const pos = (i) => state.keyCount === 9 ? POS9[i] : "key " + (i + 1);
+const PRESET_NAMES = { factory: "Factory 1–9" };
+const MODS = [[17, "Ctrl"], [16, "Shift"], [18, "Alt"], [91, "Win"]];
+const MAX_LAYERS = 6;
+
+// device: what the keypad holds (last read); edit: what the editor holds.
+const state = { codes: [], names: new Map(), device: null, edit: null, layer: 0, sel: 0, active: 0, maxLayers: MAX_LAYERS, keyCount: 9, connected: false, busy: false, presets: {} };
+
+async function api(path, body) {
+  const opts = { method: body === undefined ? "GET" : "POST", headers: { "X-Keypad-Token": token } };
+  if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  let r;
+  try { r = await fetch(path, opts); } catch (e) { throw new Error("The program did not answer. Is it still running?"); }
+  const data = await r.json().catch(() => ({ error: "The program gave an unreadable answer (" + r.status + ")." }));
+  if (!r.ok || (data && data.error)) {
+    const err = new Error(data.error || r.statusText);
+    err.code = data.code || "";
+    throw err;
+  }
+  return data;
+}
+
+function say(text, kind = "ok") {
+  const m = $("msg");
+  m.className = "banner " + kind;
+  m.textContent = text;
+  m.hidden = !text;
+}
+
+const clone = (x) => JSON.parse(JSON.stringify(x));
+const keyName = (c) => state.names.get(c) || ("code " + c);
+const emptyKeys = () => Array.from({ length: state.keyCount }, () => ({ kind: "none", label: "" }));
+const curLayer = () => state.edit && state.edit.layers[state.layer];
+
+// Must match vaydeer/layerkey.go: the name on the keypad marks a layer-switch key.
+function layerLabel(target) {
+  return target === "next" ? "Next layer" : target === "prev" ? "Previous layer" : "Go to layer " + target;
+}
+
+function sends(k) {
+  if (!k || k.kind === "none") return "nothing";
+  if (k.kind === "layer") return "⇄ " + k.label;
+  if (k.kind === "other") return "something this app cannot edit yet (type " + k.rawType + ")";
+  return (k.codes || []).map(keyName).join(" + ");
+}
+
+function sameKey(a, b) {
+  const norm = (k) => JSON.stringify([k.kind, k.label || "", k.codes || [], k.layer || "", k.rawType || 0, k.rawData || []]);
+  return norm(a) === norm(b);
+}
+
+function layerChanged(i) {
+  const d = state.device && state.device.layers[i];
+  const e = state.edit.layers[i];
+  if (!d) return true;
+  return d.name !== e.name || e.keys.some((k, j) => !sameKey(k, d.keys[j]));
+}
+
+function renderTabs() {
+  const t = $("tabs");
+  t.innerHTML = "";
+  if (!state.edit) return;
+  state.edit.layers.forEach((l, i) => {
+    const b = document.createElement("button");
+    b.className = "tab" + (i === state.layer ? " sel" : "") + (layerChanged(i) ? " changed" : "");
+    const onKeypad = state.device && i < state.device.layers.length;
+    if (onKeypad && i === state.active) b.classList.add("active");
+    b.innerHTML = '<span class="dot"></span><span class="n"></span><span class="t"></span><span class="live">● active</span>';
+    b.querySelector(".n").textContent = String(i + 1);
+    b.querySelector(".t").textContent = l.name || "(no name)";
+    b.onclick = () => { state.layer = i; renderAll(); };
+    t.append(b);
+  });
+  const add = document.createElement("button");
+  add.className = "tab";
+  add.textContent = "+ Add layer";
+  add.disabled = state.edit.layers.length >= state.maxLayers;
+  add.title = add.disabled ? "The keypad holds at most " + state.maxLayers + " layers" : "Add an empty layer";
+  add.onclick = () => {
+    state.edit.layers.push({ name: "Layer " + (state.edit.layers.length + 1), keys: emptyKeys() });
+    state.layer = state.edit.layers.length - 1;
+    say("Added layer " + (state.layer + 1) + ". Fill it by clicking keys, or load a layout into it below.", "warn");
+    renderAll();
+  };
+  t.append(add);
+  $("layerCount").textContent = "· " + state.edit.layers.length + " of " + state.maxLayers;
+}
+
+function renderGrid() {
+  const g = $("grid");
+  g.innerHTML = "";
+  g.style.gridTemplateColumns = "repeat(" + (state.keyCount === 9 ? 3 : state.keyCount) + ", 1fr)";
+  const l = curLayer();
+  if (!l) return;
+  const d = state.device && state.device.layers[state.layer];
+  l.keys.forEach((k, i) => {
+    const b = document.createElement("button");
+    b.className = "key" + (k.kind === "none" ? " none" : "") + (i === state.sel ? " sel" : "");
+    if (!d || !sameKey(k, d.keys[i])) b.classList.add("changed");
+    b.id = "key" + i;
+    b.title = pos(i);
+    const what = document.createElement("div");
+    what.className = "what";
+    what.textContent = k.kind === "none" ? "empty" : sends(k);
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = k.kind === "layer" ? "layer switch" : k.label || "";
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    b.append(dot, what, name);
+    b.onclick = () => { state.sel = i; renderAll(); };
+    g.append(b);
+  });
+}
+
+function renderEditor() {
+  const l = curLayer();
+  const k = l && l.keys[state.sel];
+  $("editor").hidden = !k;
+  if (!k) return;
+  $("edTitle").textContent = "Layer " + (state.layer + 1) + " · key " + (state.sel + 1) + (state.keyCount === 9 ? " — " + pos(state.sel) : "");
+  document.querySelectorAll("input[name=kind]").forEach((r) => { r.checked = r.value === k.kind; });
+  const isOther = k.kind === "other";
+  const codes = k.codes || [];
+  const mods = codes.filter((c) => MODS.some(([m]) => m === c));
+  const main = codes.find((c) => !MODS.some(([m]) => m === c));
+  const odd = k.kind === "combo" && codes.length !== mods.length + 1;
+  $("edKey").hidden = k.kind === "none" || k.kind === "layer" || isOther;
+  $("edLayer").hidden = k.kind !== "layer";
+  if (k.kind === "layer") $("edTarget").value = k.layer || "next";
+  $("edLabel").disabled = k.kind === "layer"; // the name is what marks a layer key
+  $("edMods").hidden = k.kind !== "combo";
+  $("edMods").innerHTML = "";
+  for (const [code, name] of MODS) {
+    const lab = document.createElement("label");
+    const c = document.createElement("input");
+    c.type = "checkbox";
+    c.checked = mods.includes(code);
+    c.onchange = () => setCodes(k, c.checked ? [...mods, code] : mods.filter((m) => m !== code), main);
+    lab.append(c, " " + name);
+    $("edMods").append(lab);
+  }
+  $("edCode").value = main !== undefined ? String(main) : "";
+  $("edOther").textContent = isOther
+    ? "This key holds text, a macro, a mouse action or a program launch. This app shows it but cannot change it yet. Choose Empty, Single key or Key combination to replace it."
+    : odd ? "This combination has more than one main key (" + sends(k) + "). Changing it here keeps only the first main key." : "";
+  $("edLabel").value = k.label || "";
+  $("edSends").textContent = sends(k);
+}
+
+function setCodes(k, mods, main) {
+  const ordered = MODS.map(([m]) => m).filter((m) => mods.includes(m));
+  const before = sends(k);
+  k.codes = main === undefined ? ordered : [...ordered, main];
+  autoLabel(k, before);
+  renderAll();
+}
+
+// Keep the name in step with the key while the name is still the automatic one.
+function autoLabel(k, before) {
+  if (!k.label || k.label === before) k.label = sends(k).slice(0, 20);
+}
+
+function renderAll() {
+  renderTabs();
+  renderGrid();
+  renderEditor();
+  const busy = state.busy, n = state.edit ? state.edit.layers.length : 0;
+  $("read").disabled = busy || !state.connected;
+  $("write").disabled = busy || !state.connected || !state.edit;
+  $("moveLeft").disabled = busy || state.layer === 0;
+  $("moveRight").disabled = busy || state.layer >= n - 1;
+  $("removeLayer").disabled = busy || n <= 1;
+  const onKeypad = state.device && state.layer < state.device.layers.length && !layerChanged(state.layer);
+  $("useLayer").disabled = busy || !state.connected || !onKeypad || state.active === state.layer;
+  $("useLayer").title = onKeypad ? "Switch the keypad to this layer now" : "Write this layer to the keypad first";
+  if (state.edit && document.activeElement !== $("layerName")) $("layerName").value = curLayer().name || "";
+}
+
+function fillCodeSelect() {
+  const sel = $("edCode");
+  sel.innerHTML = '<option value="">— choose a key —</option>';
+  let group = null, og = null;
+  for (const c of state.codes) {
+    if (c.modifier) continue;
+    if (c.group !== group) { og = document.createElement("optgroup"); og.label = c.group; sel.append(og); group = c.group; }
+    const o = document.createElement("option");
+    o.value = String(c.code);
+    o.textContent = c.name;
+    og.append(o);
+  }
+}
+
+document.querySelectorAll("input[name=kind]").forEach((r) => {
+  r.onchange = () => {
+    const k = curLayer().keys[state.sel];
+    const before = sends(k);
+    const main = (k.codes || []).find((c) => !MODS.some(([m]) => m === c));
+    const wasLayer = k.kind === "layer";
+    k.kind = r.value;
+    delete k.rawType; delete k.rawSub; delete k.rawEnc; delete k.rawData; delete k.layer;
+    if (wasLayer) k.label = "";
+    if (r.value === "layer") { k.codes = []; k.layer = "next"; k.label = layerLabel("next"); renderAll(); return; }
+    if (r.value === "none") { k.codes = []; if (k.label === before) k.label = ""; }
+    else if (r.value === "key") k.codes = main !== undefined ? [main] : [];
+    else k.codes = [16, ...(main !== undefined ? [main] : [])];
+    if (r.value !== "none") autoLabel(k, before);
+    renderAll();
+  };
+});
+$("edTarget").onchange = () => {
+  const k = curLayer().keys[state.sel];
+  k.layer = $("edTarget").value;
+  k.label = layerLabel(k.layer);
+  renderAll();
+};
+$("edCode").onchange = () => {
+  const k = curLayer().keys[state.sel];
+  const v = $("edCode").value === "" ? undefined : Number($("edCode").value);
+  const mods = k.kind === "combo" ? (k.codes || []).filter((c) => MODS.some(([m]) => m === c)) : [];
+  setCodes(k, mods, v);
+};
+$("edLabel").oninput = () => { curLayer().keys[state.sel].label = $("edLabel").value; renderGrid(); renderTabs(); };
+$("layerName").oninput = () => { curLayer().name = $("layerName").value; renderTabs(); };
+
+// "Go to layer N" keys follow their layer when layers move or go away.
+function retarget(map) {
+  const lost = [];
+  state.edit.layers.forEach((l, li) => l.keys.forEach((k, ki) => {
+    if (k.kind !== "layer" || !/^\d$/.test(k.layer)) return;
+    const to = map(Number(k.layer));
+    if (to === null) { lost.push("layer " + (li + 1) + ", key " + (ki + 1)); k.kind = "none"; k.label = ""; delete k.layer; return; }
+    k.layer = String(to);
+    k.label = layerLabel(k.layer);
+  }));
+  return lost;
+}
+
+function moveLayer(by) {
+  const L = state.edit.layers, i = state.layer, j = i + by;
+  [L[i], L[j]] = [L[j], L[i]];
+  retarget((n) => n === i + 1 ? j + 1 : n === j + 1 ? i + 1 : n);
+  state.layer = j;
+  renderAll();
+}
+$("moveLeft").onclick = () => moveLayer(-1);
+$("moveRight").onclick = () => moveLayer(1);
+$("removeLayer").onclick = () => {
+  const l = curLayer();
+  if (!confirm("Remove layer " + (state.layer + 1) + " “" + l.name + "” from the editor?\n\nThe keypad keeps it until you press “Write to keypad”.")) return;
+  const gone = state.layer + 1;
+  state.edit.layers.splice(state.layer, 1);
+  const lost = retarget((n) => n === gone ? null : n > gone ? n - 1 : n);
+  state.layer = Math.min(state.layer, state.edit.layers.length - 1);
+  if (lost.length) say("These keys went to the removed layer and are now empty: " + lost.join(", ") + ".", "warn");
+  renderAll();
+};
+$("useLayer").onclick = async () => {
+  try {
+    await api("/api/active", { layer: state.layer });
+    state.active = state.layer;
+    say("The keypad now uses layer " + (state.layer + 1) + " “" + curLayer().name + "”.");
+  } catch (e) { say(e.message, "bad"); }
+  renderAll();
+};
+
+function problems() {
+  const out = [];
+  state.edit.layers.forEach((l, li) => l.keys.forEach((k, i) => {
+    const where = "Layer " + (li + 1) + ", key " + (i + 1) + " (" + pos(i) + ")";
+    if (k.kind === "key" && (k.codes || []).length !== 1) out.push(where + ": choose a key.");
+    if (k.kind === "combo" && (k.codes || []).length < 2) out.push(where + ": a combination needs a modifier and a key.");
+    if (k.kind === "other") out.push(where + " holds something this app cannot write. Replace it first.");
+    if (k.kind === "layer" && /^\d$/.test(k.layer) && Number(k.layer) > state.edit.layers.length) out.push(where + " switches to layer " + k.layer + ", which does not exist.");
+    if (k.kind === "none" && /^(Next layer|Previous layer|Go to layer [1-6])$/.test(k.label || "")) out.push(where + ": the name “" + k.label + "” is kept for layer-switch keys. Choose “Layer switch” or another name.");
+  }));
+  return out;
+}
+
+// Layers you cannot leave from the keypad, when other layers do have a layer-switch key.
+function layerKeyWarning() {
+  const L = state.edit.layers;
+  if (L.length < 2) return "";
+  const has = L.map((l) => l.keys.some((k) => k.kind === "layer"));
+  if (!has.some(Boolean)) return "";
+  const missing = L.map((l, i) => has[i] ? null : (i + 1) + " “" + l.name + "”").filter(Boolean);
+  return missing.length ? "Layer " + missing.join(", ") + " has no layer-switch key: once there, you can switch back only from this page." : "";
+}
+
+async function refreshStatus(checkFolder) {
+  try {
+    const s = await api("/api/status" + (checkFolder ? "?folder=1" : ""));
+    const was = state.connected;
+    state.connected = s.connected;
+    if (s.info) {
+      state.active = s.info.activeLayer;
+      state.maxLayers = s.info.maxLayers || MAX_LAYERS;
+      if (s.info.keys !== state.keyCount && (s.info.keys === 9 || s.info.keys === 4)) setKeyCount(s.info.keys);
+    }
+    $("model").disabled = s.connected;
+    const chip = $("status");
+    chip.className = "chip " + (s.connected ? "ok" : "bad");
+    chip.textContent = s.connected ? s.info.keys + "-key keypad connected · firmware " + s.firmware + " · " + s.info.layerCount + " of " + s.info.maxLayers + " layers" : "Keypad not connected";
+    $("version").textContent = "v" + s.version + " · " + s.platform;
+    $("folder").textContent = s.folder;
+    const banners = [];
+    if (!s.folderOK) banners.push(["bad", "Files cannot be saved in the program folder (" + s.folderError + "). Backups will fail, so writing to the keypad is blocked. Move the program to a folder you can write to."]);
+    if (s.platform === "linux" && !s.linuxTested) banners.push(["warn", "Linux version: not yet tested with a real keypad. If something does not work, run “sudo ./ninekeypad --list” in a terminal and send the output."]);
+    if (state.keyCount === 4) banners.push(["warn", "4-key keypad: NOT tested. This program was tested only with the Vaydeer 9-key keypad. Writing should work the same way, and every write is backed up and checked, but nobody has tried it yet."]);
+    if (!s.connected && s.error) banners.push(["bad", s.error]);
+    if (checkFolder || !s.connected || was !== s.connected) {
+      $("banners").innerHTML = "";
+      for (const [kind, text] of banners) { const d = document.createElement("div"); d.className = "banner " + kind; d.textContent = text; $("banners").append(d); }
+    }
+    if (s.connected && !was && !state.busy) await readKeypad(true);
+    renderAll();
+  } catch (e) {
+    const oldKey = e.code === "bad-key";
+    $("status").className = "chip bad";
+    $("status").textContent = oldKey ? "Old page address" : "Program not running";
+    if (oldKey) { $("banners").innerHTML = ""; const d = document.createElement("div"); d.className = "banner bad"; d.textContent = e.message; $("banners").append(d); }
+    state.connected = false;
+    renderAll();
+  }
+}
+
+// Switch the editor between the 9-key and the 4-key keypad. Layers of the other size do not
+// fit, so the editor starts over with one empty layer.
+function setKeyCount(n) {
+  state.keyCount = n;
+  $("model").value = String(n);
+  if (state.edit && state.edit.layers[0].keys.length !== n) {
+    state.edit = { layers: [{ name: "Layer1", keys: emptyKeys() }] };
+    state.layer = 0; state.sel = 0;
+  }
+  renderPresets();
+}
+
+$("model").onchange = () => {
+  const n = Number($("model").value);
+  if (state.edit && state.edit.layers.some((l) => l.keys.some((k) => k.kind !== "none")) &&
+      !confirm("Switch the editor to the " + n + "-key keypad? The layers in the editor do not fit and will be cleared (the keypad and your files are not changed).")) {
+    $("model").value = String(state.keyCount);
+    return;
+  }
+  setKeyCount(n);
+  refreshStatus(false);
+};
+
+async function readKeypad(quiet) {
+  state.busy = true; renderAll();
+  try {
+    const r = await api("/api/read", {});
+    const firstLoad = !state.edit || state.edit.layers[0].keys.length !== r.keypad.layers[0].keys.length;
+    state.keyCount = r.keypad.layers[0].keys.length;
+    state.device = r.keypad;
+    state.active = r.keypad.activeLayer;
+    if (firstLoad || !quiet) {
+      state.edit = { layers: clone(r.keypad.layers) };
+      state.layer = Math.min(state.active, state.edit.layers.length - 1);
+    }
+    const names = r.keypad.layers.map((l, i) => (i + 1) + " “" + l.name + "”").join(", ");
+    if (!quiet) say("Read the keypad: " + r.keypad.layers.length + " layer(s): " + names + "." + (r.backup ? " Saved a first backup: " + r.backup : ""));
+    else if (r.backup) say("Saved a first backup of your keypad: " + r.backup);
+    if (r.warnings && r.warnings.length) say(r.warnings.join(" "), "warn");
+    if (r.backup) loadLists();
+    renderPresets();
+  } catch (e) { say(e.message, "bad"); }
+  state.busy = false; renderAll();
+}
+
+function changeSummary() {
+  const box = document.createElement("div");
+  const d = state.device ? state.device.layers : [];
+  const e = state.edit.layers;
+  const warns = [layerKeyWarning()];
+  const other = d.some((l) => l.keys.some((k) => k.kind === "other"));
+  if (other) warns.push("The keypad now holds keys made with the Vaydeer app (text, macro, mouse or program). The backup keeps them, but this program cannot write them back: only the Vaydeer app can restore them.");
+  if (state.keyCount === 4) warns.push("4-key keypad: writing is NOT tested yet (only the 9-key keypad was tested).");
+  for (const w of warns.filter(Boolean)) { const p = document.createElement("p"); p.className = "banner warn"; p.textContent = w; box.append(p); }
+  if (d.length !== e.length) {
+    const p = document.createElement("p");
+    p.innerHTML = "<b></b>";
+    p.firstChild.textContent = "The keypad will have " + e.length + " layer(s) (now " + d.length + ").";
+    box.append(p);
+  }
+  let any = false;
+  e.forEach((l, i) => {
+    const old = d[i];
+    const ul = document.createElement("ul");
+    if (!old) { const li = document.createElement("li"); li.textContent = "new layer"; ul.append(li); }
+    else {
+      if (old.name !== l.name) { const li = document.createElement("li"); li.textContent = "name: “" + old.name + "” → “" + l.name + "”"; ul.append(li); }
+      l.keys.forEach((k, j) => {
+        if (sameKey(k, old.keys[j])) return;
+        const li = document.createElement("li");
+        li.textContent = "key " + (j + 1) + " (" + pos(j) + "): " + sends(old.keys[j]) + " → " + sends(k) + (k.label && k.kind !== "layer" ? " “" + k.label + "”" : "");
+        ul.append(li);
+      });
+    }
+    if (!ul.children.length) return;
+    any = true;
+    const h = document.createElement("h3");
+    h.textContent = "Layer " + (i + 1) + " “" + l.name + "”";
+    box.append(h, ul);
+  });
+  for (let i = e.length; i < d.length; i++) {
+    any = true;
+    const h = document.createElement("h3");
+    h.textContent = "Layer " + (i + 1) + " “" + d[i].name + "” will be removed from the keypad";
+    box.append(h);
+  }
+  if (!any && d.length === e.length) { const p = document.createElement("p"); p.textContent = "Nothing changed compared to the keypad. Write anyway?"; box.append(p); }
+  return box;
+}
+
+$("read").onclick = () => readKeypad(false);
+$("write").onclick = () => {
+  const p = problems();
+  if (p.length) { say(p.join(" "), "bad"); return; }
+  $("confirmBody").innerHTML = "";
+  $("confirmBody").append(changeSummary());
+  $("confirm").showModal();
+};
+$("confirmNo").onclick = () => $("confirm").close();
+$("confirmYes").onclick = async () => {
+  $("confirm").close();
+  state.busy = true; renderAll(); say("Writing…", "warn");
+  try {
+    const r = await api("/api/write", { format: "vaydeer-9key-keypad", version: 1, layers: state.edit.layers });
+    state.device = r.keypad;
+    state.active = r.keypad.activeLayer;
+    const n = r.keypad.layers.length;
+    if (r.verified) say("Done. " + n + " layer(s) written and read back correctly. The old keypad contents are saved as backup " + r.backup + ".");
+    else say("Written, but the check found problems: " + r.problems.join("; ") + ". The old keypad contents are saved as backup " + r.backup + ".", "bad");
+    if (r.verified && r.warnings && r.warnings.length) say($("msg").textContent + " " + r.warnings.join(" "), "warn");
+    loadLists();
+  } catch (e) { say(e.message, "bad"); }
+  state.busy = false; renderAll();
+};
+
+// Load one layout into the selected layer.
+function loadIntoLayer(l, from) {
+  if (l.keys.length !== state.keyCount) {
+    say(from + " is for a " + l.keys.length + "-key keypad; the editor is set to " + state.keyCount + " keys.", "bad");
+    return;
+  }
+  const cur = curLayer();
+  cur.name = l.name;
+  cur.keys = clone(l.keys);
+  say("Loaded " + from + " into layer " + (state.layer + 1) + ". Press “Write to keypad” to store it on the keypad.", "warn");
+  renderAll();
+}
+
+// Ready-made layouts that fit the keypad in the editor.
+function renderPresets() {
+  const box = $("presetButtons");
+  box.innerHTML = "";
+  for (const [id, l] of Object.entries(state.presets)) {
+    if (l.keys.length !== state.keyCount) continue;
+    const b = document.createElement("button");
+    b.textContent = PRESET_NAMES[id] || l.name;
+    b.onclick = () => loadIntoLayer(l, "“" + b.textContent + "”");
+    box.append(b);
+  }
+  if (!box.children.length) box.innerHTML = '<span class="muted">None for this keypad.</span>';
+}
+
+function fileRow(ul, f, buttons) {
+  const li = document.createElement("li");
+  const s = document.createElement("span");
+  s.textContent = f.name;
+  const sm = document.createElement("small");
+  const layers = f.layers.length === 1 ? "layer “" + f.layers[0] + "”" : f.layers.length + " layers: " + f.layers.join(", ");
+  sm.textContent = layers + " · " + new Date(f.savedAt).toLocaleString();
+  s.append(sm);
+  li.append(s);
+  for (const [label, fn] of buttons) {
+    const b = document.createElement("button");
+    b.className = "small";
+    b.textContent = label;
+    b.onclick = fn;
+    li.append(b);
+  }
+  ul.append(li);
+}
+
+async function loadLists() {
+  try {
+    const [layouts, backups] = await Promise.all([api("/api/files?dir=layouts"), api("/api/files?dir=backups")]);
+    const lu = $("layouts"), bu = $("backups");
+    lu.innerHTML = ""; bu.innerHTML = "";
+    const none = (ul) => { const li = document.createElement("li"); li.innerHTML = '<span class="muted">None yet.</span>'; ul.append(li); };
+    if (!layouts.length) none(lu);
+    for (const f of layouts) {
+      fileRow(lu, f, [
+        ["Load", async () => {
+          try { loadIntoLayer(await api("/api/file?dir=layouts&name=" + encodeURIComponent(f.name)), f.name); } catch (e) { say(e.message, "bad"); }
+        }],
+        ["Rename", async () => {
+          const to = prompt("New file name for " + f.name + ":", f.name.replace(/\.json$/i, ""));
+          if (!to) return;
+          try { const r = await api("/api/file/rename", { name: f.name, newName: to }); say("Renamed to " + r.name + "."); loadLists(); } catch (e) { say(e.message, "bad"); }
+        }],
+        ["Delete", async () => {
+          if (!confirm("Delete the layout file " + f.name + "?\n\nThis cannot be undone. The keypad is not changed.")) return;
+          try { await api("/api/file/delete", { name: f.name }); say("Deleted " + f.name + "."); loadLists(); } catch (e) { say(e.message, "bad"); }
+        }],
+      ]);
+    }
+    if (!backups.length) none(bu);
+    for (const f of backups) {
+      fileRow(bu, f, [["Load", async () => {
+        try {
+          const k = await api("/api/file?dir=backups&name=" + encodeURIComponent(f.name));
+          if (k.layers[0].keys.length !== state.keyCount) { say(f.name + " is from a " + k.layers[0].keys.length + "-key keypad; the editor is set to " + state.keyCount + " keys.", "bad"); return; }
+          state.edit = { layers: clone(k.layers) };
+          state.layer = 0;
+          say("Loaded backup " + f.name + " (" + k.layers.length + " layer(s)) into the editor. Press “Write to keypad” to restore it.", "warn");
+          renderAll();
+        } catch (e) { say(e.message, "bad"); }
+      }]]);
+    }
+  } catch (e) { say(e.message, "bad"); }
+}
+
+$("save").onclick = async () => {
+  try {
+    const l = curLayer();
+    const r = await api("/api/file?dir=layouts", { name: $("saveName").value, layout: { format: "vaydeer-9key-layout", version: 1, name: l.name, keys: l.keys } });
+    say("Saved layer " + (state.layer + 1) + " as " + r.name + ".");
+    $("saveName").value = "";
+    loadLists();
+  } catch (e) { say("Not saved: " + e.message, "bad"); }
+};
+
+$("quit").onclick = async () => {
+  try { await api("/api/quit", {}); } catch (e) {}
+  document.body.innerHTML = '<p style="padding:40px;font:16px system-ui">ninekeypad has stopped. You can close this tab.</p>';
+};
+
+function listenKeys() {
+  const es = new EventSource("/api/events?t=" + encodeURIComponent(token));
+  es.onmessage = (m) => {
+    const ev = JSON.parse(m.data);
+    if (ev.layer !== state.active) { state.active = ev.layer; renderTabs(); renderAll(); }
+    if (ev.layer !== state.layer) return; // the grid shows another layer
+    const el = $("key" + ev.key);
+    if (!el) return;
+    if (ev.down) { el.classList.add("pressed"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("pressed"), 1500); }
+    else el.classList.remove("pressed");
+  };
+}
+
+async function start() {
+  try {
+    const [codes, presets] = await Promise.all([api("/api/keycodes"), api("/api/presets")]);
+    state.codes = codes;
+    for (const c of codes) state.names.set(c.code, c.name);
+    state.presets = presets;
+    fillCodeSelect();
+    renderPresets();
+  } catch (e) { say(e.message, "bad"); }
+  await refreshStatus(true);
+  loadLists();
+  listenKeys();
+  setInterval(() => { if (!state.busy) refreshStatus(false); }, 3000);
+}
+say("");
+start();
+</script>
+</body>
+</html>

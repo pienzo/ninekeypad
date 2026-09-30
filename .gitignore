@@ -8,3 +8,10 @@ dist/
 keypad-settings.json
 ninekeypad-settings.json
 *.tmp
+
+# Local desktop/deb build artifacts
+/build/
+
+# Python cache
+__pycache__/
+*.pyc
